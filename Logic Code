@@ -1,0 +1,1893 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "triggers": {
+            "When_a_HTTP_request_is_received": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "method": "GET"
+                }
+            }
+        },
+        "actions": {
+            "Get_Auth_Token": {
+                "runAfter": {
+                    "Initialize_Password": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Http",
+                "inputs": {
+                    "uri": "https://primeeco.tech/api.prime/v2/oauth/token",
+                    "method": "POST",
+                    "headers": {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "application/vnd.api.v2+json"
+                    },
+                    "body": "grant_type=@{variables('GrantType')}&client_id=@{variables('ClientId')}&client_secret=@{variables('ClientSecret')}&username=@{variables('Username')}&password=@{variables('Password')}"
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "Get_Client_ID": {
+                "runAfter": {},
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('prime-client-id')}/value"
+                },
+                "runtimeConfiguration": {
+                    "secureData": {
+                        "properties": [
+                            "inputs",
+                            "outputs"
+                        ]
+                    }
+                }
+            },
+            "Get_Client_Secret": {
+                "runAfter": {
+                    "Get_Client_ID": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('prime-client-secret')}/value"
+                },
+                "runtimeConfiguration": {
+                    "secureData": {
+                        "properties": [
+                            "inputs",
+                            "outputs"
+                        ]
+                    }
+                }
+            },
+            "Get_Username": {
+                "runAfter": {
+                    "Get_Client_Secret": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('prime-username')}/value"
+                },
+                "runtimeConfiguration": {
+                    "secureData": {
+                        "properties": [
+                            "inputs",
+                            "outputs"
+                        ]
+                    }
+                }
+            },
+            "Get_Password": {
+                "runAfter": {
+                    "Get_Username": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('prime-password')}/value"
+                },
+                "runtimeConfiguration": {
+                    "secureData": {
+                        "properties": [
+                            "inputs",
+                            "outputs"
+                        ]
+                    }
+                }
+            },
+            "Initialize_GrantType": {
+                "runAfter": {
+                    "Get_Password": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "GrantType",
+                            "type": "string",
+                            "value": "@{encodeUriComponent('password')}"
+                        }
+                    ]
+                }
+            },
+            "Initialize_ClientId": {
+                "runAfter": {
+                    "Initialize_GrantType": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ClientId",
+                            "type": "string",
+                            "value": "@{encodeUriComponent(body('Get_Client_ID')?['value'])}"
+                        }
+                    ]
+                }
+            },
+            "Initialize_ClientSecret": {
+                "runAfter": {
+                    "Initialize_ClientId": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ClientSecret",
+                            "type": "string",
+                            "value": "@{encodeUriComponent(body('Get_Client_Secret')?['value'])}"
+                        }
+                    ]
+                }
+            },
+            "Initialize_Username": {
+                "runAfter": {
+                    "Initialize_ClientSecret": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "Username",
+                            "type": "string",
+                            "value": "@{encodeUriComponent(body('Get_Username')?['value'])}"
+                        }
+                    ]
+                }
+            },
+            "Initialize_Password": {
+                "runAfter": {
+                    "Initialize_Username": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "Password",
+                            "type": "string",
+                            "value": "@{encodeUriComponent(body('Get_Password')?['value'])}"
+                        }
+                    ]
+                }
+            },
+            "Parse_Token_Response": {
+                "runAfter": {
+                    "Get_Auth_Token": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ParseJson",
+                "inputs": {
+                    "content": "@body('Get_Auth_Token')",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "token_type": {
+                                "type": "string"
+                            },
+                            "expires_in": {
+                                "type": "integer"
+                            },
+                            "access_token": {
+                                "type": "string"
+                            },
+                            "refresh_token": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "Get_Jobs": {
+                "runAfter": {
+                    "Parse_Token_Response": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Http",
+                "inputs": {
+                    "uri": "https://primeeco.tech/api.prime/v2/jobs",
+                    "method": "GET",
+                    "headers": {
+                        "Accept": "application/vnd.api.v2+json",
+                        "Content-Type": "application/json",
+                        "data-serializer": "simple"
+                    },
+                    "queries": {
+                        "per_page": "1000",
+                        "q": "'statusId'.eq('66834cf1-b1fe-a0bd-d1fb-6144c07e9adf'),'workflowId'.eq('2080aaf0-19d6-413e-9b0d-46b10bdeea6b')",
+                        "include": "customer,client"
+                    },
+                    "authentication": {
+                        "type": "Raw",
+                        "value": "Bearer @{body('Parse_Token_Response')?['access_token']}"
+                    }
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "Parse_Jobs_JSON": {
+                "runAfter": {
+                    "Get_Jobs": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ParseJson",
+                "inputs": {
+                    "content": "@body('Get_Jobs')",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "data": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "ongoingJob": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "jobNumber": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "clientReference": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "additionalReference": {},
+                                        "description": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "divisionId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "perilId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "catastropheCodeId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "jobType": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "jobTypeId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "workflowId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "statusId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "address": {
+                                            "type": "object",
+                                            "properties": {
+                                                "addressLine1": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "suburb": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "state": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "country": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "postcode": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "customerId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "clientId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "assignedId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "excessAmount": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "isExcessCollected": {
+                                            "type": "boolean"
+                                        },
+                                        "excessAmountCollected": {},
+                                        "caseManagerId": {},
+                                        "supervisorId": {},
+                                        "estimatorId": {},
+                                        "primaryContactId": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "businessId": {},
+                                        "clientPortalId": {},
+                                        "notes": {},
+                                        "authorisedTotalIncludingTax": {},
+                                        "authorisedTotalExcludingTax": {},
+                                        "authorisedTotalExcludingTaxExcludingMargin": {},
+                                        "authorisedTotalExcludingTaxExcludingMarginExcludingMarkup": {},
+                                        "filterTags": {
+                                            "type": "array"
+                                        },
+                                        "filterTagIds": {
+                                            "type": "array"
+                                        },
+                                        "region": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "incidentDate": {},
+                                        "allocatedDate": {},
+                                        "brokerReference": {},
+                                        "strataReference": {},
+                                        "adjusterReference": {},
+                                        "startDate": {},
+                                        "endDate": {},
+                                        "primeUrl": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "createdAt": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "createdBy": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "updatedAt": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "updatedBy": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "version": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "customer": {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "status": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "position": {},
+                                                        "isIndividual": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "firstName": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "lastName": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "salutation": {},
+                                                        "contactType": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "primaryContact": {},
+                                                        "homeNumber": {},
+                                                        "mobileNumber": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "workNumber": {},
+                                                        "preferredContactNumber": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "preferredContactNumberValue": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "contactEmail": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "abn": {},
+                                                        "acn": {},
+                                                        "financeRef": {},
+                                                        "levesysRef": {},
+                                                        "notes": {},
+                                                        "filterTags": {
+                                                            "type": "array"
+                                                        },
+                                                        "filterTagIds": {
+                                                            "type": "array"
+                                                        },
+                                                        "salesAccountNumber": {},
+                                                        "purchasesAccountNumber": {},
+                                                        "salesPaymentTermType": {},
+                                                        "salesPaymentTermValue": {},
+                                                        "purchasesPaymentTermType": {},
+                                                        "purchasesPaymentTermValue": {},
+                                                        "linkedToContactId": {},
+                                                        "address": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "addressLine1": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "suburb": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "state": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "country": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "postcode": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "postalAddress": {},
+                                                        "addressLine1": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressLine2": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressSuburb": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressState": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressCountry": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressPostcode": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressLine1": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressLine2": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressSuburb": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressState": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressCountry": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressPostcode": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "subcontractor": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "createdAt": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "createdBy": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "updatedAt": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "updatedBy": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "version": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "client": {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "status": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "position": {},
+                                                        "isIndividual": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "firstName": {},
+                                                        "lastName": {},
+                                                        "salutation": {},
+                                                        "contactType": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "primaryContact": {},
+                                                        "homeNumber": {},
+                                                        "mobileNumber": {},
+                                                        "workNumber": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "preferredContactNumber": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "preferredContactNumberValue": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "contactEmail": {},
+                                                        "abn": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "acn": {},
+                                                        "financeRef": {},
+                                                        "levesysRef": {},
+                                                        "notes": {},
+                                                        "filterTags": {
+                                                            "type": "array"
+                                                        },
+                                                        "filterTagIds": {
+                                                            "type": "array"
+                                                        },
+                                                        "salesAccountNumber": {},
+                                                        "purchasesAccountNumber": {},
+                                                        "salesPaymentTermType": {},
+                                                        "salesPaymentTermValue": {},
+                                                        "purchasesPaymentTermType": {},
+                                                        "purchasesPaymentTermValue": {},
+                                                        "linkedToContactId": {},
+                                                        "address": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "addressLine1": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "suburb": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "state": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "country": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "postcode": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "postalAddress": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "addressLine1": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "suburb": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "state": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "country": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "postcode": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "addressLine1": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressLine2": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressSuburb": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressState": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressCountry": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "addressPostcode": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressLine1": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressLine2": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressSuburb": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressState": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressCountry": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "postalAddressPostcode": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "subcontractor": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "createdAt": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "createdBy": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "updatedAt": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "updatedBy": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "version": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "meta": {
+                                "type": "object",
+                                "properties": {
+                                    "pagination": {
+                                        "type": "object",
+                                        "properties": {
+                                            "total": {
+                                                "type": [
+                                                    "integer",
+                                                    "null"
+                                                ]
+                                            },
+                                            "count": {
+                                                "type": [
+                                                    "integer",
+                                                    "null"
+                                                ]
+                                            },
+                                            "per_page": {
+                                                "type": [
+                                                    "integer",
+                                                    "null"
+                                                ]
+                                            },
+                                            "current_page": {
+                                                "type": [
+                                                    "integer",
+                                                    "null"
+                                                ]
+                                            },
+                                            "total_pages": {
+                                                "type": [
+                                                    "integer",
+                                                    "null"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "links": {
+                                "type": "object",
+                                "properties": {
+                                    "self": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "first": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "last": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "For_each_Job": {
+                "foreach": "@body('Parse_Jobs_JSON')?['data']",
+                "actions": {
+                    "Parse_Job_JSON": {
+                        "type": "ParseJson",
+                        "inputs": {
+                            "content": "@items('For_each_Job')",
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "ongoingJob": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "jobNumber": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "clientReference": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "additionalReference": {},
+                                    "description": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "divisionId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "perilId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "catastropheCodeId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "jobType": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "jobTypeId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "workflowId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "statusId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "address": {
+                                        "type": "object",
+                                        "properties": {
+                                            "addressLine1": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "suburb": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "state": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "country": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "postcode": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "customerId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "clientId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "assignedId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "excessAmount": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "isExcessCollected": {
+                                        "type": "boolean"
+                                    },
+                                    "excessAmountCollected": {},
+                                    "caseManagerId": {},
+                                    "supervisorId": {},
+                                    "estimatorId": {},
+                                    "primaryContactId": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "businessId": {},
+                                    "clientPortalId": {},
+                                    "notes": {},
+                                    "authorisedTotalIncludingTax": {},
+                                    "authorisedTotalExcludingTax": {},
+                                    "authorisedTotalExcludingTaxExcludingMargin": {},
+                                    "authorisedTotalExcludingTaxExcludingMarginExcludingMarkup": {},
+                                    "filterTags": {
+                                        "type": "array"
+                                    },
+                                    "filterTagIds": {
+                                        "type": "array"
+                                    },
+                                    "region": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "incidentDate": {},
+                                    "allocatedDate": {},
+                                    "brokerReference": {},
+                                    "strataReference": {},
+                                    "adjusterReference": {},
+                                    "startDate": {},
+                                    "endDate": {},
+                                    "primeUrl": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "createdAt": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "createdBy": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "updatedAt": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "updatedBy": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "version": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "customer": {
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "status": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "position": {},
+                                                    "isIndividual": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "name": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "firstName": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "lastName": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "salutation": {},
+                                                    "contactType": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "primaryContact": {},
+                                                    "homeNumber": {},
+                                                    "mobileNumber": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "workNumber": {},
+                                                    "preferredContactNumber": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "preferredContactNumberValue": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "contactEmail": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "abn": {},
+                                                    "acn": {},
+                                                    "financeRef": {},
+                                                    "levesysRef": {},
+                                                    "notes": {},
+                                                    "filterTags": {
+                                                        "type": "array"
+                                                    },
+                                                    "filterTagIds": {
+                                                        "type": "array"
+                                                    },
+                                                    "salesAccountNumber": {},
+                                                    "purchasesAccountNumber": {},
+                                                    "salesPaymentTermType": {},
+                                                    "salesPaymentTermValue": {},
+                                                    "purchasesPaymentTermType": {},
+                                                    "purchasesPaymentTermValue": {},
+                                                    "linkedToContactId": {},
+                                                    "address": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "addressLine1": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "suburb": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "state": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "country": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "postcode": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        }
+                                                    },
+                                                    "postalAddress": {},
+                                                    "addressLine1": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressLine2": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressSuburb": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressState": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressCountry": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressPostcode": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressLine1": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressLine2": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressSuburb": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressState": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressCountry": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressPostcode": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "subcontractor": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "createdAt": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "createdBy": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "updatedAt": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "updatedBy": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "version": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "client": {
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "status": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "position": {},
+                                                    "isIndividual": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "name": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "firstName": {},
+                                                    "lastName": {},
+                                                    "salutation": {},
+                                                    "contactType": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "primaryContact": {},
+                                                    "homeNumber": {},
+                                                    "mobileNumber": {},
+                                                    "workNumber": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "preferredContactNumber": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "preferredContactNumberValue": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "contactEmail": {},
+                                                    "abn": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "acn": {},
+                                                    "financeRef": {},
+                                                    "levesysRef": {},
+                                                    "notes": {},
+                                                    "filterTags": {
+                                                        "type": "array"
+                                                    },
+                                                    "filterTagIds": {
+                                                        "type": "array"
+                                                    },
+                                                    "salesAccountNumber": {},
+                                                    "purchasesAccountNumber": {},
+                                                    "salesPaymentTermType": {},
+                                                    "salesPaymentTermValue": {},
+                                                    "purchasesPaymentTermType": {},
+                                                    "purchasesPaymentTermValue": {},
+                                                    "linkedToContactId": {},
+                                                    "address": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "addressLine1": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "suburb": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "state": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "country": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "postcode": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        }
+                                                    },
+                                                    "postalAddress": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "addressLine1": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "suburb": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "state": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "country": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "postcode": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        }
+                                                    },
+                                                    "addressLine1": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressLine2": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressSuburb": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressState": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressCountry": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "addressPostcode": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressLine1": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressLine2": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressSuburb": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressState": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressCountry": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "postalAddressPostcode": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "subcontractor": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "createdAt": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "createdBy": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "updatedAt": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "updatedBy": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "version": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "Send_an_email_(V2)": {
+                        "runAfter": {
+                            "Parse_Job_JSON": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection",
+                        "inputs": {
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['office365']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "body": {
+                                "To": "emailalert@tmc.net;grantb@kbainsurance.com.au",
+                                "Subject": "New After Hours Make Safe Job",
+                                "Body": "<p class=\"editor-paragraph\">AUTOMATED MESSAGE. PLEASE DO NOT REPLY.</p><p class=\"editor-paragraph\">---</p><br><p class=\"editor-paragraph\">A new make safe has been requested, with the following details:</p><br><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\" style=\"font-size: 20px;\">Job Details</strong></b></p><br><p class=\"editor-paragraph\">Description:</p><p class=\"editor-paragraph\">@{body('Parse_Job_JSON')?['description']}<br></p><br><p class=\"editor-paragraph\">Client: @{body('Parse_Job_JSON')?['client']?['data']?['name']}</p><p class=\"editor-paragraph\">Client reference: @{body('Parse_Job_JSON')?['clientReference']}</p><p class=\"editor-paragraph\">KBA Job Number: @{body('Parse_Job_JSON')?['jobNumber']}</p><br><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\" style=\"font-size: 20px;\">Address</strong></b></p><br><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Line 1: </strong></b>@{body('Parse_Job_JSON')?['address']?['addressLine1']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Suburb: </strong></b>@{body('Parse_Job_JSON')?['address']?['suburb']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">State: </strong></b>@{body('Parse_Job_JSON')?['address']?['state']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Country: </strong></b>@{body('Parse_Job_JSON')?['address']?['country']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Postcode: </strong></b>@{body('Parse_Job_JSON')?['address']?['postcode']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Region:</strong></b> @{body('Parse_Job_JSON')?['region']}</p><br><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\" style=\"font-size: 20px;\">Customer Contact Details</strong></b></p><br><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Customer Salutation: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['salutation']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Customer Name: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['name']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Preferred Phone Contact: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['preferredContactNumber']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Mobile Number: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['mobileNumber']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Home Number: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['homeNumber']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Work Number: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['workNumber']}</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Email: </strong></b>@{body('Parse_Job_JSON')?['customer']?['data']?['contactEmail']}</p><br><p class=\"editor-paragraph\">Please coordinate make safe repairs in accordance with agreements.</p>",
+                                "Importance": "High"
+                            },
+                            "path": "/v2/Mail"
+                        }
+                    },
+                    "Update_Job_Status": {
+                        "runAfter": {
+                            "Send_an_email_(V2)": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "https://primeeco.tech/api.prime/v2/jobs/@{body('Parse_Job_JSON')?['id']}/relationships/status",
+                            "method": "PATCH",
+                            "headers": {
+                                "Accept": "application/vnd.api.v2+json",
+                                "Content-Type": "application/json"
+                            },
+                            "body": {
+                                "data": {
+                                    "id": "97b6532c-0206-47d3-bf0f-0d45d8208a63",
+                                    "version": "@body('Parse_Job_JSON')?['version']"
+                                }
+                            },
+                            "authentication": {
+                                "type": "Raw",
+                                "value": "Bearer @{body('Parse_Token_Response')?['access_token']}"
+                            }
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Parse_Jobs_JSON": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Foreach"
+            }
+        },
+        "parameters": {
+            "$connections": {
+                "type": "Object",
+                "defaultValue": {}
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "type": "Object",
+            "value": {
+                "keyvault": {
+                    "id": "/subscriptions/791ce782-21ca-4ca7-a71c-363245b95304/providers/Microsoft.Web/locations/australiaeast/managedApis/keyvault",
+                    "connectionId": "/subscriptions/791ce782-21ca-4ca7-a71c-363245b95304/resourceGroups/after-hours-make-safe-rg/providers/Microsoft.Web/connections/keyvault",
+                    "connectionName": "keyvault",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    }
+                },
+                "office365": {
+                    "id": "/subscriptions/791ce782-21ca-4ca7-a71c-363245b95304/providers/Microsoft.Web/locations/australiaeast/managedApis/office365",
+                    "connectionId": "/subscriptions/791ce782-21ca-4ca7-a71c-363245b95304/resourceGroups/after-hours-make-safe-rg/providers/Microsoft.Web/connections/office365",
+                    "connectionName": "office365",
+                    "connectionProperties": {}
+                }
+            }
+        }
+    }
+}
